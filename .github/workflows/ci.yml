@@ -1,0 +1,143 @@
+name: CI and Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # Repository name is "-nexora-tech", so the site lives under /-nexora-tech/
+  BASE_HREF: /-nexora-tech/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Locate the Flutter project
+        run: |
+          P=$(find . -maxdepth 3 -name pubspec.yaml -not -path '*/.dart_tool/*' | head -n 1)
+          if [ -z "$P" ]; then
+            echo "::error::pubspec.yaml was not found in the repository. Upload the Flutter project first."
+            exit 1
+          fi
+          echo "APP_DIR=$(dirname "$P")" >> "$GITHUB_ENV"
+          echo "Flutter project found in: $(dirname "$P")"
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter pub get
+
+      # The code was written without a formatter available, so it is formatted
+      # here before analysis. Commit the formatted files later to keep them
+      # tidy in the repository.
+      - name: Format
+        working-directory: ${{ env.APP_DIR }}
+        run: dart format lib test
+
+      - name: Analyse
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter test
+
+      - name: Build Flutter Web (GitHub Pages base path)
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build web --release --base-href "$BASE_HREF"
+
+      - name: Prepare for GitHub Pages
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          # Lets deep links such as /services open the app (single-page fallback)
+          cp build/web/index.html build/web/404.html
+          touch build/web/.nojekyll
+
+      - name: Check the build output
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          set -e
+          test -f build/web/index.html
+          test -f build/web/flutter_bootstrap.js
+          test -f build/web/main.dart.js
+          test -f build/web/assets/assets/images/logo/nexora-horizontal-dark.png
+          grep -q '<base href="/-nexora-tech/">' build/web/index.html
+          if grep -q 'FLUTTER_BASE_HREF' build/web/index.html; then
+            echo "::error::index.html still contains the uncompiled base href placeholder"
+            exit 1
+          fi
+          echo "Build output looks correct:"
+          ls -la build/web | head -30
+
+      - name: Upload the compiled site
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.APP_DIR }}/build/web
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  verify-live:
+    if: github.event_name != 'pull_request'
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify the live website
+        run: |
+          URL="${{ needs.deploy.outputs.page_url }}"
+          echo "Checking $URL"
+          ok=0
+          for i in $(seq 1 18); do
+            code=$(curl -s -o /tmp/index.html -w '%{http_code}' "$URL" || true)
+            if [ "$code" = "200" ] && grep -q '<base href="/-nexora-tech/">' /tmp/index.html; then ok=1; break; fi
+            echo "Attempt $i: HTTP $code, waiting..."
+            sleep 10
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::Live index.html is missing or does not have the compiled base href"
+            exit 1
+          fi
+          for f in flutter_bootstrap.js main.dart.js assets/AssetManifest.bin.json assets/assets/images/logo/nexora-horizontal-dark.png; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${URL}${f}")
+            echo "${URL}${f} -> HTTP $code"
+            if [ "$code" != "200" ]; then
+              echo "::error::${f} did not load (HTTP $code)"
+              exit 1
+            fi
+          done
+          echo "Live website verified: compiled Flutter files are being served."
