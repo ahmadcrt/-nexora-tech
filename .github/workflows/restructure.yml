@@ -1,0 +1,120 @@
+name: Restructure project folders (run once)
+
+# One-time repair. The phone upload placed every file in the repository root.
+# This moves each file into its correct folder and commits the result.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restructure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Move files into the correct folders
+        run: |
+          python3 - <<'PY'
+          import os, shutil
+          MAP = {
+          "20261107000000_initial_schema.sql": "supabase/migrations/20261107000000_initial_schema.sql",
+          "Icon-192.png": "web/icons/Icon-192.png",
+          "Icon-512.png": "web/icons/Icon-512.png",
+          "Inter-Bold.otf": "assets/fonts/Inter-Bold.otf",
+          "Inter-Medium.otf": "assets/fonts/Inter-Medium.otf",
+          "Inter-Regular.otf": "assets/fonts/Inter-Regular.otf",
+          "LICENSE-Inter.txt": "assets/fonts/LICENSE-Inter.txt",
+          "about_page.dart": "lib/features/website/presentation/about_page.dart",
+          "app.dart": "lib/app.dart",
+          "app_config.dart": "lib/core/config/app_config.dart",
+          "app_router.dart": "lib/core/routing/app_router.dart",
+          "app_smoke_test.dart": "test/app_smoke_test.dart",
+          "app_theme.dart": "lib/core/theme/app_theme.dart",
+          "brand_colors.dart": "lib/core/theme/brand_colors.dart",
+          "breakpoints.dart": "lib/core/theme/breakpoints.dart",
+          "buttons.dart": "lib/core/widgets/buttons.dart",
+          "closing_cta.dart": "lib/features/website/presentation/widgets/closing_cta.dart",
+          "contact_page.dart": "lib/features/enquiry/presentation/contact_page.dart",
+          "content_container.dart": "lib/core/widgets/content_container.dart",
+          "enquiry_controller.dart": "lib/features/enquiry/application/enquiry_controller.dart",
+          "enquiry_controller_test.dart": "test/enquiry_controller_test.dart",
+          "enquiry_draft.dart": "lib/features/enquiry/domain/enquiry_draft.dart",
+          "enquiry_form.dart": "lib/features/enquiry/presentation/enquiry_form.dart",
+          "enquiry_repository.dart": "lib/features/enquiry/domain/enquiry_repository.dart",
+          "enquiry_validators.dart": "lib/features/enquiry/domain/enquiry_validators.dart",
+          "enquiry_validators_test.dart": "test/enquiry_validators_test.dart",
+          "favicon.png": "web/favicon.png",
+          "hero_section.dart": "lib/features/website/presentation/widgets/hero_section.dart",
+          "home_page.dart": "lib/features/website/presentation/home_page.dart",
+          "index.html": "web/index.html",
+          "legal_placeholder_page.dart": "lib/features/website/presentation/legal_placeholder_page.dart",
+          "main.dart": "lib/main.dart",
+          "manifest.json": "web/manifest.json",
+          "nav_items.dart": "lib/core/routing/nav_items.dart",
+          "nexora-horizontal-dark.png": "assets/images/logo/nexora-horizontal-dark.png",
+          "nexora-horizontal-light.png": "assets/images/logo/nexora-horizontal-light.png",
+          "nexora-stacked-dark.png": "assets/images/logo/nexora-stacked-dark.png",
+          "nexora-stacked-light.png": "assets/images/logo/nexora-stacked-light.png",
+          "nexora-symbol-dark.png": "assets/images/logo/nexora-symbol-dark.png",
+          "nexora-symbol-light.png": "assets/images/logo/nexora-symbol-light.png",
+          "nexora-wordmark-dark.png": "assets/images/logo/nexora-wordmark-dark.png",
+          "nexora-wordmark-light.png": "assets/images/logo/nexora-wordmark-light.png",
+          "nexora_logo.dart": "lib/core/widgets/nexora_logo.dart",
+          "not_found_page.dart": "lib/features/website/presentation/not_found_page.dart",
+          "notice.dart": "lib/core/widgets/notice.dart",
+          "page_header.dart": "lib/features/website/presentation/widgets/page_header.dart",
+          "responsive_grid.dart": "lib/core/widgets/responsive_grid.dart",
+          "responsive_text.dart": "lib/core/theme/responsive_text.dart",
+          "section.dart": "lib/core/widgets/section.dart",
+          "service_card.dart": "lib/features/website/presentation/widgets/service_card.dart",
+          "service_interest.dart": "lib/features/enquiry/domain/service_interest.dart",
+          "services_page.dart": "lib/features/website/presentation/services_page.dart",
+          "site_content.dart": "lib/features/website/content/site_content.dart",
+          "site_footer.dart": "lib/core/widgets/site_footer.dart",
+          "site_header.dart": "lib/core/widgets/site_header.dart",
+          "site_scaffold.dart": "lib/core/widgets/site_scaffold.dart",
+          "spacing.dart": "lib/core/theme/spacing.dart",
+          "supabase_bootstrap.dart": "lib/core/supabase/supabase_bootstrap.dart",
+          "supabase_enquiry_repository.dart": "lib/features/enquiry/data/supabase_enquiry_repository.dart",
+          "unavailable_enquiry_repository.dart": "lib/features/enquiry/data/unavailable_enquiry_repository.dart",
+          "values_section.dart": "lib/features/website/presentation/widgets/values_section.dart",
+          }
+          moved = skipped = 0
+          for name, target in MAP.items():
+              if not os.path.isfile(name):
+                  continue
+              if os.path.exists(target):
+                  print("Target already exists, removing root duplicate:", name)
+                  os.remove(name)
+                  skipped += 1
+                  continue
+              os.makedirs(os.path.dirname(target), exist_ok=True)
+              shutil.move(name, target)
+              print("Moved", name, "->", target)
+              moved += 1
+          print("Moved:", moved, "Duplicates removed:", skipped)
+          missing = [t for t in MAP.values() if not os.path.exists(t)]
+          print("Expected files still missing:", len(missing))
+          for t in missing:
+              print("  MISSING", t)
+          print("Files left in the repository root:")
+          for f in sorted(os.listdir(".")):
+              if os.path.isfile(f):
+                  print("  ", f)
+          PY
+
+      - name: Commit the new structure
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "chore: restore Flutter project folder structure"
+            git push
+          fi
