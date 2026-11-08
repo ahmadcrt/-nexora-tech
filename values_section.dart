@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/brand_colors.dart';
-import '../../../../core/theme/responsive_text.dart';
-import '../../../../core/widgets/section.dart';
-import '../../content/site_content.dart';
+import 'package:nexora_tech/core/theme/brand_colors.dart';
+import 'package:nexora_tech/core/theme/responsive_text.dart';
+import 'package:nexora_tech/core/widgets/section.dart';
+import 'package:nexora_tech/features/website/content/site_content.dart';
 
 /// The eight approved core values (D-004).
 class ValuesSection extends StatelessWidget {
