@@ -125,6 +125,14 @@ class _EnquiryFormState extends ConsumerState<EnquiryForm> {
             ),
             const SizedBox(height: 16),
           ],
+          if (state.phase == SubmissionPhase.rateLimited) ...[
+            const Notice(
+              icon: Icons.schedule,
+              title: 'Too many enquiries have been sent recently.',
+              message: 'Please try again later.',
+            ),
+            const SizedBox(height: 16),
+          ],
           if (state.phase == SubmissionPhase.failure) ...[
             const Notice(
               icon: Icons.error_outline,

@@ -8,13 +8,22 @@ import '../domain/enquiry_draft.dart';
 import '../domain/enquiry_repository.dart';
 
 final enquiryRepositoryProvider = Provider<EnquiryRepository>((ref) {
-  if (!AppConfig.hasSupabase) {
+  // Public enquiries are off unless Supabase is configured and the
+  // ENQUIRIES_ENABLED switch was set at build time.
+  if (!AppConfig.publicEnquiriesActive) {
     return const UnavailableEnquiryRepository();
   }
   return SupabaseEnquiryRepository(Supabase.instance.client);
 });
 
-enum SubmissionPhase { idle, submitting, success, unavailable, failure }
+enum SubmissionPhase {
+  idle,
+  submitting,
+  success,
+  unavailable,
+  rateLimited,
+  failure,
+}
 
 class EnquiryState {
   const EnquiryState({this.phase = SubmissionPhase.idle});
@@ -39,6 +48,7 @@ class EnquiryController extends Notifier<EnquiryState> {
       phase: switch (outcome) {
         EnquirySubmitOutcome.success => SubmissionPhase.success,
         EnquirySubmitOutcome.unavailable => SubmissionPhase.unavailable,
+        EnquirySubmitOutcome.rateLimited => SubmissionPhase.rateLimited,
         EnquirySubmitOutcome.failure => SubmissionPhase.failure,
       },
     );

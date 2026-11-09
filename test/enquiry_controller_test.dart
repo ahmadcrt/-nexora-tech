@@ -50,6 +50,7 @@ void main() {
       EnquirySubmitOutcome.success: SubmissionPhase.success,
       EnquirySubmitOutcome.failure: SubmissionPhase.failure,
       EnquirySubmitOutcome.unavailable: SubmissionPhase.unavailable,
+      EnquirySubmitOutcome.rateLimited: SubmissionPhase.rateLimited,
     }.entries) {
       final container = _container(_FakeRepository(entry.key));
       await container.read(enquiryControllerProvider.notifier).submit(_draft);

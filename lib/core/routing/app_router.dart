@@ -1,5 +1,7 @@
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/presentation/admin_page.dart';
+import '../../features/admin/presentation/enquiry_detail_page.dart';
 import '../../features/enquiry/domain/service_interest.dart';
 import '../../features/enquiry/presentation/contact_page.dart';
 import '../../features/website/presentation/about_page.dart';
@@ -51,6 +53,18 @@ GoRouter createRouter() {
         path: '/terms',
         pageBuilder: (context, state) => const NoTransitionPage<void>(
           child: LegalPlaceholderPage(title: 'Terms', path: '/terms'),
+        ),
+      ),
+      // Administration. Not linked from the public navigation.
+      GoRoute(
+        path: '/admin',
+        pageBuilder: (context, state) =>
+            const NoTransitionPage<void>(child: AdminPage()),
+      ),
+      GoRoute(
+        path: '/admin/enquiries/:id',
+        pageBuilder: (context, state) => NoTransitionPage<void>(
+          child: EnquiryDetailPage(id: state.pathParameters['id'] ?? ''),
         ),
       ),
     ],

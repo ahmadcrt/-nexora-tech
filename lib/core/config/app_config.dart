@@ -9,7 +9,16 @@ abstract final class AppConfig {
   static const String supabaseAnonKey =
       String.fromEnvironment('SUPABASE_ANON_KEY');
 
+  /// Public enquiries stay off until the Founder & CEO has verified the
+  /// database security (supabase/verification/rls_checks.sql) and sets the
+  /// repository variable ENQUIRIES_ENABLED to `true`. Any other value is off.
+  static const bool enquiriesEnabled = bool.fromEnvironment('ENQUIRIES_ENABLED');
+
   /// True only when both Supabase values were provided at build time.
   static bool get hasSupabase =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  /// True only when Supabase is configured AND public enquiries were
+  /// explicitly switched on.
+  static bool get publicEnquiriesActive => hasSupabase && enquiriesEnabled;
 }
