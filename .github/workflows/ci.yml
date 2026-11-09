@@ -62,9 +62,43 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: flutter test
 
+      # Safety net: the build must never receive a Supabase SECRET key.
+      - name: Refuse secret Supabase keys
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os, sys, base64, json
+          key = os.environ.get("SUPABASE_ANON_KEY", "")
+          if key.startswith("sb_secret_"):
+              print("::error::SUPABASE_ANON_KEY is a Supabase SECRET key. Use the public anon or publishable key.")
+              sys.exit(1)
+          parts = key.split(".")
+          if len(parts) == 3:
+              try:
+                  payload = parts[1] + "=" * (-len(parts[1]) % 4)
+                  role = json.loads(base64.urlsafe_b64decode(payload)).get("role")
+                  if role == "service_role":
+                      print("::error::SUPABASE_ANON_KEY is the service-role key. Remove it and use the anon key.")
+                      sys.exit(1)
+              except Exception:
+                  pass
+          print("Supabase key check passed.")
+          PY
+
       - name: Build Flutter Web (GitHub Pages base path)
         working-directory: ${{ env.APP_DIR }}
-        run: flutter build web --release --base-href "$BASE_HREF"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          # Public enquiries stay off unless the repository variable
+          # ENQUIRIES_ENABLED is set to "true" (after security verification).
+          ENQUIRIES_ENABLED: ${{ vars.ENQUIRIES_ENABLED }}
+        run: |
+          flutter build web --release --base-href "$BASE_HREF" \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=ENQUIRIES_ENABLED="$ENQUIRIES_ENABLED"
 
       - name: Prepare for GitHub Pages
         working-directory: ${{ env.APP_DIR }}
